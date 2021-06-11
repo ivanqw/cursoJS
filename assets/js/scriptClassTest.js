@@ -272,3 +272,102 @@ for (let i = 0; i < alarms.times.length; i++) {
     let alarm = new TimeCard(t.id, t.active, t.time, t.repeat)
     alarmsList.append(alarm.htmlCard())
 }
+
+
+
+
+
+
+
+
+//clock 
+
+class Clock{
+    
+    constructor(id){
+        this.id = id
+        this.time = '00:00:00'
+        this.day = 0
+        this.hour = '00'
+        this.minutes = '00'
+        this.seconds = '00'
+        
+    }
+    get html(){
+        return html();
+    }
+    get run(){
+        return run();
+    }
+
+    setter(){
+
+        let t = new Date();
+        const format = (num) => num > 9? `${num}`: `0${num}`;
+
+        this.hour = format(t.getHours())
+        this.minutes = format(t.getMinutes())
+        this.seconds = format(t.getSeconds())
+        this.day = t.getDay() -1 >= 0 ? t.getDay() -1: 6;
+
+        this.time = `${this.hour}:${this.minutes}:${this.seconds}`;
+        
+        
+    }
+
+    render(){
+        this.setter();
+        const clockhtml = document.getElementById(this.id)
+        clockhtml.style.textAlign = "center";
+        clockhtml.style.fontSize = "36px";
+        clockhtml.style.background = "silver";
+        clockhtml.style.borderRadius = '1rem'
+        clockhtml.style.padding = "1rem";
+        clockhtml.style.margin = "1rem 0"
+        clockhtml.classList.add("clock")
+        clockhtml.innerHTML = `
+
+            <span class="hour">
+                ${this.hour}
+            </span>
+            <span>:</span>
+            <span class="minutes">
+                ${this.minutes}
+            </span>
+            <span>:</span>
+            <span class="seconds">
+                ${this.seconds}
+            </span>
+
+        `
+    }
+    alarmCheck(){
+        alarms.times.filter(x => x.active == true && `${x.time}:00` == this.time)[0] != undefined ?
+        document.body.style.background = "red":
+        document.body.style.background = "white"
+
+    }
+
+    start() {
+        this.render();
+        //tiene que ser 500 para que no se desfase
+        this.timer = setInterval(() => {this.render(); this.alarmCheck()}, 500);
+      }
+
+    
+  }
+
+
+
+
+
+  let t = document.getElementById("clock");
+
+  //inicia reloj con id clock
+  let clock = new Clock('clock');
+    //acción recursiva
+    clock.start()
+
+    console.log(clock)
+    
+  
