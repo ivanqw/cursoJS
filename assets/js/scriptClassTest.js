@@ -10,15 +10,17 @@ function reset() {
         times: [
             {
                 id: 0,
-                active: false,
+                active: true,
                 time: "07:00",
-                repeat: [0, 1, 2, 3, 4]
+                repeat: [0, 1, 2, 3, 4],
+                past: false
             },
             {
                 id: 1,
                 active: false,
                 time: "12:00",
-                repeat: []
+                repeat: [],
+                past: false
             }
         ]
     }
@@ -29,17 +31,20 @@ function reset() {
 //set Alarms 
 let alarms = JSON.parse(window.localStorage.alarms)
 
+console.log(alarms)
+
 
 
 
 
 
 class TimeCard {
-    constructor(id, active, time, repeat) {
+    constructor(id, active, time, repeat, past) {
         this.id = id;
         this.active = active;
         this.time = time;
         this.repeat = repeat;
+        this.past = past;
     }
 
     get htmlCard() {
@@ -56,14 +61,15 @@ class TimeCard {
         //element
         let card = document.createElement("div");
         card.dataset.id = this.id
-        card.classList.add("timeCard", "form-check", "form-switch", "px-5","py-3", "border","rounded","shadow-sm")
+        card.classList.add("timeCard", "form-check", "form-switch", "px-5", "py-3", "border", "rounded", "shadow-sm")
 
         let checkTimeCard = document.createElement("input");
         checkTimeCard.classList.add('form-check-input')
         checkTimeCard.type = "checkbox";
         checkTimeCard.id = `alarm-${this.id}`;
         checkTimeCard.dataset.id = this.id;
-        checkTimeCard.checked = this.active ? "checked" : "";
+        checkTimeCard.checked = this.active && !this.past ? "checked" : "";
+
 
         let label = document.createElement("label");
         label.classList.add("form-check-label");
@@ -81,7 +87,11 @@ class TimeCard {
         btnUpdate.innerText = 'Editar';
         //events
         checkTimeCard.addEventListener("change", (e) => {
-            updateAlarm(this.id, "active", !this.active)
+            this.active = e.target.checked
+            updateAlarm(this.id, "active", this.active)
+            if(this.active == false){
+                alarmPause()
+            }
         })
         btnDelete.addEventListener("click", (e) => {
             deleteAlarm(this.id)
@@ -212,19 +222,19 @@ function createAlarmForm() {
             let a = form.elements[i]
 
             if (a.type == "time") {
-                    hhmm = a.value
+                hhmm = a.value
             } else if (a.type == "checkbox" && a.checked == true) {
                 repeatArray.push(Number(a.value))
             }
         }
-        console.log(hhmm?true:false)
-        if(hhmm){
+        console.log(hhmm ? true : false)
+        if (hhmm) {
             createAlarm(hhmm, repeatArray)
             form.submit()
-        }else{
+        } else {
             form.elements[0].focus()
         }
-        
+
     })
 
 
@@ -238,10 +248,10 @@ function createAlarmForm() {
     m.show()
 }
 
-function validateTime (time) {
+function validateTime(time) {
     const timeReg = /^([0-9]|0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/
     return time.match(timeReg)
-  }
+}
 
 //CRUD alarms
 function localUpdate(alarms) {
@@ -269,7 +279,7 @@ function createAlarm(hhmm, repeatArray) {
 var alarmsList = document.getElementById('alarms');
 for (let i = 0; i < alarms.times.length; i++) {
     let t = alarms.times[i]
-    let alarm = new TimeCard(t.id, t.active, t.time, t.repeat)
+    let alarm = new TimeCard(t.id, t.active, t.time, t.repeat, t.past)
     alarmsList.append(alarm.htmlCard())
 }
 
@@ -282,40 +292,40 @@ for (let i = 0; i < alarms.times.length; i++) {
 
 //clock 
 
-class Clock{
-    
-    constructor(id){
+class Clock {
+
+    constructor(id) {
         this.id = id
         this.time = '00:00:00'
         this.day = 0
         this.hour = '00'
         this.minutes = '00'
         this.seconds = '00'
-        
+
     }
-    get html(){
+    get html() {
         return html();
     }
-    get run(){
+    get run() {
         return run();
     }
 
-    setter(){
+    setter() {
 
         let t = new Date();
-        const format = (num) => num > 9? `${num}`: `0${num}`;
+        const format = (num) => num > 9 ? `${num}` : `0${num}`;
 
         this.hour = format(t.getHours())
         this.minutes = format(t.getMinutes())
         this.seconds = format(t.getSeconds())
-        this.day = t.getDay() -1 >= 0 ? t.getDay() -1: 6;
+        this.day = t.getDay() - 1 >= 0 ? t.getDay() - 1 : 6;
 
         this.time = `${this.hour}:${this.minutes}:${this.seconds}`;
-        
-        
+
+
     }
 
-    render(){
+    render() {
         this.setter();
         const clockhtml = document.getElementById(this.id)
         clockhtml.style.textAlign = "center";
@@ -341,33 +351,80 @@ class Clock{
 
         `
     }
-    alarmCheck(){
-        alarms.times.filter(x => x.active == true && `${x.time}:00` == this.time)[0] != undefined ?
-        document.body.style.background = "red":
-        document.body.style.background = "white"
+    alarmCheck() {
+        let t = alarms.times.filter(x => x.active == true && `${x.time}` == this.time.slice(0, 5) &&
+            (x.repeat.length == 0 || x.repeat.includes(this.day)))[0]
+
+        if (t) {
+            const timeCard = document.querySelector(`.timeCard[data-id="${t.id}"]`)
+            timeCard.classList.add("bg-warning")
+            const timeCardCheck = timeCard.querySelector(`input[data-id="${t.id}"]`)
+            alarmPlay()            
+            if (timeCardCheck && this.seconds >= 59) {
+                
+                timeCard.classList.remove("bg-warning")
+                
+                alarmPause()
+                //si la alarma no tiene repetición debe cambiar su estado active
+                if(t.repeat.length <= 0){
+                    timeCardCheck.checked = "";
+                    updateAlarm(t.id, "active", false)
+                }
+            }
+        } else {
+            document.body.style.background = "white"
+        }
+
+
+
+
+
+
+
+
+
+
 
     }
 
     start() {
         this.render();
         //tiene que ser 500 para que no se desfase
-        this.timer = setInterval(() => {this.render(); this.alarmCheck()}, 500);
-      }
-
-    
-  }
+        this.timer = setInterval(() => { this.render(); this.alarmCheck() }, 500);
+    }
 
 
+}
 
 
 
-  let t = document.getElementById("clock");
 
-  //inicia reloj con id clock
-  let clock = new Clock('clock');
-    //acción recursiva
-    clock.start()
+let s = document.getElementById("sound");
+function alarmPlay(){
 
-    console.log(clock)
-    
-  
+    let playPromise = s.play();
+    //es necesario que el usuario interacture con la pagina para que suene, sino dará error 
+    if (playPromise !== undefined) {
+      playPromise.then(_ => {console.log("play")}).catch(error => {console.log("error")});
+    }
+}
+function alarmPause(){
+    console.log("off")
+    let playPromise = s.pause();
+    //es necesario que el usuario interacture con la pagina para que suene, sino dará error 
+    if (playPromise !== undefined) {
+      playPromise.then(_ => {console.log("pause")}).catch(error => {console.log("error")});
+    }
+}
+
+
+let t = document.getElementById("clock");
+
+//inicia reloj con id clock
+let clock = new Clock('clock');
+//acción recursiva
+clock.start()
+
+console.log(clock)
+
+
