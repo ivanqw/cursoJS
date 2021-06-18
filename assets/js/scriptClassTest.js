@@ -59,7 +59,8 @@ class TimeCard {
 
     htmlCard() {
         //element
-        let card = document.createElement("div");
+        let card
+        card = document.createElement("div");
         card.dataset.id = this.id
         card.classList.add("timeCard", "form-check", "form-switch", "px-5", "py-3", "border", "rounded", "shadow-sm")
 
@@ -76,7 +77,7 @@ class TimeCard {
         label.for = `alarm-${this.id}`;
 
         let alarmDays = document.createElement("div");
-        alarmDays.classList.add("col-sm-6")
+        alarmDays.classList.add("col-sm-12","pb-3")
 
         const btnDelete = document.createElement("button");
         btnDelete.classList.add("btn", "btn-danger");
@@ -89,17 +90,20 @@ class TimeCard {
         checkTimeCard.addEventListener("change", (e) => {
             this.active = e.target.checked
             updateAlarm(this.id, "active", this.active)
-            if(this.active == false){
+            if (this.active == false) {
                 alarmPause()
+                e.target.closest(".timeCard").classList.remove("bg-warning")
             }
         })
         btnDelete.addEventListener("click", (e) => {
             deleteAlarm(this.id)
             card.remove();
+            alarmPause()
+
         })
         btnUpdate.addEventListener("click", (e) => {
-            this.createModal(this.id)
-            console.log(this)
+            //this.createModal(this.id)
+            createAlarmForm(this.id)
         })
 
 
@@ -119,74 +123,13 @@ class TimeCard {
                 </span>`).join("");
 
     }
-    createModal($id) {
-        const modal = document.createElement("div");
-        modal.classList.add("modal", "fade");
-        modal.id = `modal-${this.id}`
-        const modalDialog = document.createElement("div");
-        modalDialog.classList.add("modal-dialog")
-
-        const form = document.createElement("form");
-        form.classList.add("modal-content", "p-3")
-        const formElements = `
-            <div class="input-group mb-2 mr-sm-2">
-                <div class="input-group-prepend">
-                    <div class="input-group-text">Hora</div>
-                </div>
-            <input type="time"
-                value="${$id != undefined ? alarms.times.filter(x => x.id == $id)[0].time : ''}"
-                        class="form-control" >
-                    </div>
-        ${days.map((d, index) => `
-            <div class="form-check form-check-inline">
-                <input  class="form-check-input" 
-                        type="checkbox" 
-                        ${$id != undefined ? this.repeat.includes(index) ? "checked" : null : null}
-                        value="${index}">
-                <label class="form-check-label">${d} </label>
-            </div>`
-        ).join("")}`
-
-        const btnSave = document.createElement("button");
-        btnSave.classList.add("btn", "btn-success")
-        btnSave.innerText = "Guardar"
-
-        btnSave.addEventListener("click", (e) => {
-            e.preventDefault();
-            let newHour = ""
-            let newRepeat = []
-            for (let i = 0; i < form.elements.length; i++) {
-                let a = form.elements[i]
-
-                if (a.type == "time") {
-                    newHour = a.value
-                } else if (a.type == "checkbox" && a.checked == true) {
-                    newRepeat.push(Number(a.value))
-                }
-            }
-            updateAlarm(this.id, "time", newHour)
-            updateAlarm(this.id, "repeat", newRepeat)
-            form.submit()
-        })
-
-
-        form.innerHTML = formElements
-        if ($id != undefined) {
-            form.append(btnSave)
-        } else {
-
-        }
-
-        modalDialog.append(form)
-        modal.append(modalDialog)
-        const m = new bootstrap.Modal(modal)
-        m.show();
-
-    }
 
 };
 
-function createAlarmForm() {
+function createAlarmForm($id) {
+    const thisAlarm = alarms.times.find(x => x.id == $id);
+    console.log(thisAlarm)
+
     const modal = document.createElement("div");
     modal.classList.add("modal", "fade");
     const modalDialog = document.createElement("div");
@@ -199,12 +142,13 @@ function createAlarmForm() {
                 <div class="input-group-prepend">
                     <div class="input-group-text">Hora</div>
                 </div>
-                    <input type="time" value=""class="form-control" required>
+                    <input type="time" value="${thisAlarm ? thisAlarm.time : ""}"class="form-control" required>
                 </div>
         ${days.map((d, index) => `
             <div class="form-check form-check-inline">
                 <input  class="form-check-input" 
                         type="checkbox" 
+                        ${thisAlarm != undefined ? thisAlarm.repeat.includes(index) ? "checked" : null : null}
                         value="${index}">
                 <label class="form-check-label">${d} </label>
             </div>`
@@ -229,8 +173,28 @@ function createAlarmForm() {
         }
         console.log(hhmm ? true : false)
         if (hhmm) {
-            createAlarm(hhmm, repeatArray)
-            form.submit()
+            if (thisAlarm) {
+                //actualiza
+                updateAlarm(thisAlarm.id, "time", hhmm)
+                updateAlarm(thisAlarm.id, "repeat", repeatArray)
+
+                //selecciona la tarjeta segun el id
+                let card1 = document.querySelector(`.timeCard[data-id="${thisAlarm.id}"]`)
+                //crea una nueva time card
+                let card2 = new TimeCard(thisAlarm.id, true, hhmm, repeatArray, false)
+                //reemplaza la antigua por la nueva ¿alguna mejor forma de optimizar esto? 
+                card1.parentNode.replaceChild(card2.htmlCard(), card1);
+                //destruye el modal
+                e.target.closest(".modal").remove()
+                document.querySelector(".modal-backdrop").remove()
+            } else {
+                //crea
+                createAlarm(hhmm, repeatArray)
+                //remove modal
+                e.target.closest(".modal").remove()
+                document.querySelector(".modal-backdrop").remove()
+            }
+
         } else {
             form.elements[0].focus()
         }
@@ -246,12 +210,8 @@ function createAlarmForm() {
     modal.append(modalDialog)
     const m = new bootstrap.Modal(modal)
     m.show()
-}
+}// create modalform
 
-function validateTime(time) {
-    const timeReg = /^([0-9]|0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/
-    return time.match(timeReg)
-}
 
 //CRUD alarms
 function localUpdate(alarms) {
@@ -262,26 +222,26 @@ function updateAlarm(id, attr, value) {
     alarms.times.find(x => x.id == id)[attr] = value;
     localUpdate(alarms)
 }
+function updateCard(card, array) {
+    console.log(card)
+    console.log(array)
+}
 function deleteAlarm(id) {
     alarms.times = alarms.times.filter(x => x.id != id);
     localUpdate(alarms)
 }
 function createAlarm(hhmm, repeatArray) {
+    var alarmsList = document.getElementById('alarms');
     let newAlarm = new TimeCard(alarms.lastID++, true, hhmm, Array.from(repeatArray))
     alarms.times.push(newAlarm)
+    alarmsList.append(newAlarm.htmlCard())
     alarms.lastID = alarms.lastID++
     localUpdate(alarms)
 }
 
 
 
-//print load 
-var alarmsList = document.getElementById('alarms');
-for (let i = 0; i < alarms.times.length; i++) {
-    let t = alarms.times[i]
-    let alarm = new TimeCard(t.id, t.active, t.time, t.repeat, t.past)
-    alarmsList.append(alarm.htmlCard())
-}
+
 
 
 
@@ -350,8 +310,12 @@ class Clock {
             </span>
 
         `
+        document.querySelector("title").innerText = `${this.hour}:${this.minutes}:${this.seconds}`
     }
     alarmCheck() {
+        let clock = document.querySelector(".clock");
+
+
         let t = alarms.times.filter(x => x.active == true && `${x.time}` == this.time.slice(0, 5) &&
             (x.repeat.length == 0 || x.repeat.includes(this.day)))[0]
 
@@ -359,14 +323,14 @@ class Clock {
             const timeCard = document.querySelector(`.timeCard[data-id="${t.id}"]`)
             timeCard.classList.add("bg-warning")
             const timeCardCheck = timeCard.querySelector(`input[data-id="${t.id}"]`)
-            alarmPlay()            
+            alarmPlay()
             if (timeCardCheck && this.seconds >= 59) {
-                
+
                 timeCard.classList.remove("bg-warning")
-                
+
                 alarmPause()
                 //si la alarma no tiene repetición debe cambiar su estado active
-                if(t.repeat.length <= 0){
+                if (t.repeat.length <= 0) {
                     timeCardCheck.checked = "";
                     updateAlarm(t.id, "active", false)
                 }
@@ -374,16 +338,6 @@ class Clock {
         } else {
             document.body.style.background = "white"
         }
-
-
-
-
-
-
-
-
-
-
 
     }
 
@@ -400,20 +354,20 @@ class Clock {
 
 
 let s = document.getElementById("sound");
-function alarmPlay(){
+function alarmPlay() {
 
     let playPromise = s.play();
     //es necesario que el usuario interacture con la pagina para que suene, sino dará error 
     if (playPromise !== undefined) {
-      playPromise.then(_ => {console.log("play")}).catch(error => {console.log("error")});
+        playPromise.then(_ => { console.log("play") }).catch(error => { console.log("error") });
     }
 }
-function alarmPause(){
+function alarmPause() {
     console.log("off")
     let playPromise = s.pause();
     //es necesario que el usuario interacture con la pagina para que suene, sino dará error 
     if (playPromise !== undefined) {
-      playPromise.then(_ => {console.log("pause")}).catch(error => {console.log("error")});
+        playPromise.then(_ => { console.log("pause") }).catch(error => { console.log("error") });
     }
 }
 
@@ -425,6 +379,12 @@ let clock = new Clock('clock');
 //acción recursiva
 clock.start()
 
-console.log(clock)
+//print alarms
+var alarmsList = document.getElementById('alarms');
+for (let i = 0; i < alarms.times.length; i++) {
+    let t = alarms.times[i]
+    let alarm = new TimeCard(t.id, t.active, t.time, t.repeat, t.past)
+    alarmsList.append(alarm.htmlCard())
+}
 
-
+console.log(alarmsList)
