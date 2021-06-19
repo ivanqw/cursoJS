@@ -12,15 +12,15 @@ function reset() {
                 id: 0,
                 active: true,
                 time: "07:00",
-                repeat: [0, 1, 2, 3, 4],
-                past: false
+                repeat: [0, 1, 2, 3, 4]
+              
             },
             {
                 id: 1,
                 active: false,
                 time: "12:00",
-                repeat: [],
-                past: false
+                repeat: []
+        
             }
         ]
     }
@@ -39,12 +39,12 @@ console.log(alarms)
 
 
 class TimeCard {
-    constructor(id, active, time, repeat, past) {
+    constructor(id, active, time, repeat) {
         this.id = id;
         this.active = active;
         this.time = time;
         this.repeat = repeat;
-        this.past = past;
+      
     }
 
     get htmlCard() {
@@ -62,6 +62,7 @@ class TimeCard {
         let card
         card = document.createElement("div");
         card.dataset.id = this.id
+        card.dataset.active = this.active
         card.classList.add("timeCard", "form-check", "form-switch", "px-5", "py-3", "border", "rounded", "shadow-sm")
 
         let checkTimeCard = document.createElement("input");
@@ -69,7 +70,8 @@ class TimeCard {
         checkTimeCard.type = "checkbox";
         checkTimeCard.id = `alarm-${this.id}`;
         checkTimeCard.dataset.id = this.id;
-        checkTimeCard.checked = this.active && !this.past ? "checked" : "";
+        console.log("problema del checked")
+        checkTimeCard.checked = this.active == "false" ? false : this.active;
 
 
         let label = document.createElement("label");
@@ -89,6 +91,7 @@ class TimeCard {
         //events
         checkTimeCard.addEventListener("change", (e) => {
             this.active = e.target.checked
+            card.dataset.active = this.active;
             updateAlarm(this.id, "active", this.active)
             if (this.active == false) {
                 alarmPause()
@@ -117,10 +120,10 @@ class TimeCard {
     updateView($label, $days) {
         $label.innerText = this.time;
         $days.innerHTML = days.map(
-            (d, index) => `<span class="badge me-1 ${this.repeat.includes(index) ?
+            (d, index) => this.repeat.length > 0? `<span class="badge me-1 ${this.repeat.includes(index) ?
                 "bg-dark" : "bg-light text-dark"}">
                 ${d.substring(0, 2)}
-                </span>`).join("");
+                </span>`:"").join("");
 
     }
 
@@ -171,7 +174,6 @@ function createAlarmForm($id) {
                 repeatArray.push(Number(a.value))
             }
         }
-        console.log(hhmm ? true : false)
         if (hhmm) {
             if (thisAlarm) {
                 //actualiza
@@ -180,13 +182,23 @@ function createAlarmForm($id) {
 
                 //selecciona la tarjeta segun el id
                 let card1 = document.querySelector(`.timeCard[data-id="${thisAlarm.id}"]`)
+                let active = card1.dataset.active
                 //crea una nueva time card
-                let card2 = new TimeCard(thisAlarm.id, true, hhmm, repeatArray, false)
+                let card2 = new TimeCard(thisAlarm.id, active, hhmm, repeatArray, false)
+                
+
+
+                
                 //reemplaza la antigua por la nueva ¿alguna mejor forma de optimizar esto? 
+                
                 card1.parentNode.replaceChild(card2.htmlCard(), card1);
+
+                //document.querySelector(`input[data-id="${thisAlarm.id}"]`).checked = card2.active
+
                 //destruye el modal
                 e.target.closest(".modal").remove()
                 document.querySelector(".modal-backdrop").remove()
+                alarmPause();
             } else {
                 //crea
                 createAlarm(hhmm, repeatArray)
@@ -238,17 +250,6 @@ function createAlarm(hhmm, repeatArray) {
     alarms.lastID = alarms.lastID++
     localUpdate(alarms)
 }
-
-
-
-
-
-
-
-
-
-
-
 
 //clock 
 
@@ -320,9 +321,12 @@ class Clock {
             (x.repeat.length == 0 || x.repeat.includes(this.day)))[0]
 
         if (t) {
+            const title = document.querySelector("title")
             const timeCard = document.querySelector(`.timeCard[data-id="${t.id}"]`)
             timeCard.classList.add("bg-warning")
             const timeCardCheck = timeCard.querySelector(`input[data-id="${t.id}"]`)
+
+            title.innerHTML = `${this.time} ⏰`
             alarmPlay()
             if (timeCardCheck && this.seconds >= 59) {
 
@@ -383,7 +387,7 @@ clock.start()
 var alarmsList = document.getElementById('alarms');
 for (let i = 0; i < alarms.times.length; i++) {
     let t = alarms.times[i]
-    let alarm = new TimeCard(t.id, t.active, t.time, t.repeat, t.past)
+    let alarm = new TimeCard(t.id, t.active, t.time, t.repeat)
     alarmsList.append(alarm.htmlCard())
 }
 
